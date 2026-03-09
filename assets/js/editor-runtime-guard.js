@@ -29,7 +29,6 @@
         { check: function () { return typeof window.Quote === "function"; }, src: "https://cdn.jsdelivr.net/npm/@editorjs/quote@2.7.6/dist/quote.umd.min.js" },
         { check: function () { return typeof window.Delimiter === "function"; }, src: "https://cdn.jsdelivr.net/npm/@editorjs/delimiter@1.4.2/dist/delimiter.umd.min.js" },
         { check: function () { return typeof window.Table === "function"; }, src: "https://cdn.jsdelivr.net/npm/@editorjs/table@2.4.5/dist/table.umd.min.js" },
-        { check: function () { return typeof window.AnyButton === "function"; }, src: "https://cdn.jsdelivr.net/npm/editorjs-button@3.0.3/dist/bundle.js" },
         { check: function () { return typeof window.DragDrop === "function"; }, src: "https://cdn.jsdelivr.net/npm/editorjs-drag-drop@1.1.16/dist/bundle.js" },
     ];
 

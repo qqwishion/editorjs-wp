@@ -268,6 +268,12 @@ body.wp-admin #editorjs_wp_box .inside {
     color: #b91c1c;
 }
 
+.editorjs-wp-frontend-top-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 10px;
+}
+
 .editorjs-wp-stock-results {
     margin-top: 10px;
     display: grid;
@@ -478,6 +484,11 @@ body.editorjs-wp-frontend-editor-page .publish-form__text #editorjs-wp-holder {
 
 body.editorjs-wp-frontend-editor-page .publish-form__actions {
     margin: 0;
+}
+
+body.editorjs-wp-frontend-editor-page .editorjs-wp-autosave-status--top-right {
+    margin: 0;
+    white-space: nowrap;
 }
 
 body.editorjs-wp-frontend-editor-page .publish-form__description {
@@ -1204,10 +1215,6 @@ body.editorjs-wp-frontend-editor-page .editorjs-wp-frontend-publish-button:focus
     box-shadow: 0 2px 5px rgba(15, 23, 42, 0.08);
 }
 
-#editorjs-wp-holder .ce-toolbar__settings-btn {
-    display: inline-flex !important;
-}
-
 #editorjs-wp-holder .ce-toolbar__plus:hover,
 #editorjs-wp-holder .ce-toolbar__settings-btn:hover {
     color: #0f172a;
@@ -1229,6 +1236,19 @@ body.editorjs-wp-frontend-editor-page .editorjs-wp-frontend-publish-button:focus
 #editorjs-wp-holder .ce-block--selected .ce-block__content {
     background: #f8fafc;
     border-radius: 10px;
+}
+
+#editorjs-wp-holder .ce-block--selected .ce-block__content:has(.cdx-quote) {
+    background: transparent !important;
+}
+
+#editorjs-wp-holder .ce-block--selected .ce-block__content.editorjs-wp-quote-block-content {
+    background: transparent !important;
+}
+
+#editorjs-wp-holder .cdx-quote {
+    background: transparent !important;
+    border-left: 0 !important;
 }
 
 #editorjs-wp-holder .image-tool__image-picture {
@@ -1280,22 +1300,66 @@ body.editorjs-wp-frontend-editor-page .editorjs-wp-frontend-publish-button:focus
     min-height: 38px;
 }
 
+#editorjs-wp-holder .editorjs-wp-video-caption::placeholder {
+    color: #d1d5db;
+    opacity: 1;
+}
+
 #editorjs-wp-holder .editorjs-wp-any-button {
     border-radius: 999px;
     background: #111827;
     color: #ffffff;
 }
 
-/* Keep AnyButton editable after save: do not navigate while inside Editor.js canvas. */
-#editorjs-wp-holder .anyButtonContainer__anyButtonHolder .anyButton__btn {
-    pointer-events: auto;
+#editorjs-wp-holder .editorjs-wp-button-tool {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    display: grid;
+    gap: 10px;
 }
 
-#editorjs-wp-holder .anyButtonContainer__anyButtonHolder {
-    min-height: 42px;
+#editorjs-wp-holder .editorjs-wp-button-tool__form {
+    display: grid;
+    gap: 8px;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__form.is-hidden {
+    display: none;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__preview {
+    text-align: center;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__preview.is-hidden {
+    display: none;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__input:focus {
+    outline: none;
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.3);
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__actions {
     display: flex;
-    align-items: center;
     justify-content: center;
+}
+
+#editorjs-wp-holder .editorjs-wp-button-tool__preview-link {
+    display: inline-block;
+    text-decoration: none;
 }
 
 #editorjs-wp-holder .tc-wrap {
@@ -1444,10 +1508,10 @@ body.editorjs-wp-frontend-editor-page .editorjs-wp-frontend-publish-button:focus
 
 .editorjs-wp-content .editorjs-wp-quote {
     margin: 1.6rem 0;
-    padding: 0.95rem 1.15rem;
-    border-left: 4px solid #d1d5db;
-    background: #f8fafc;
-    border-radius: 0 10px 10px 0;
+    padding: 0 !important;
+    border-left: 0 !important;
+    background: transparent !important;
+    border-radius: 0;
 }
 
 .editorjs-wp-content .editorjs-wp-quote cite {
@@ -1456,6 +1520,21 @@ body.editorjs-wp-frontend-editor-page .editorjs-wp-frontend-publish-button:focus
     color: #64748b;
     font-size: 0.92em;
     font-style: normal;
+}
+
+.editorjs-wp-content .editorjs-wp-video {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.editorjs-wp-content .editorjs-wp-video video {
+    order: 1;
+}
+
+.editorjs-wp-content .editorjs-wp-video figcaption {
+    order: 2;
+    width: 100%;
 }
 
 .editorjs-wp-content .editorjs-wp-table-wrap {

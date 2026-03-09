@@ -13,7 +13,6 @@ class EditorJS_WP_Editor_Loader {
     public const QUOTE_VERSION = '2.7.6';
     public const DELIMITER_VERSION = '1.4.2';
     public const TABLE_VERSION = '2.4.5';
-    public const BUTTON_VERSION = '3.0.3';
     public const DRAG_DROP_VERSION = '1.1.16';
 
     public static function init(): void {
@@ -218,13 +217,6 @@ class EditorJS_WP_Editor_Loader {
             true
         );
         wp_enqueue_script(
-            'editorjs-button',
-            EDITORJS_WP_URL . 'assets/vendor/editorjs-button.bundle.js',
-            [],
-            self::BUTTON_VERSION,
-            true
-        );
-        wp_enqueue_script(
             'editorjs-drag-drop',
             EDITORJS_WP_URL . 'assets/vendor/editorjs-drag-drop.bundle.js',
             [],
@@ -244,7 +236,6 @@ class EditorJS_WP_Editor_Loader {
                 'editorjs-quote',
                 'editorjs-delimiter',
                 'editorjs-table',
-                'editorjs-button',
                 'editorjs-drag-drop',
             ],
             EDITORJS_WP_VERSION,
@@ -342,6 +333,14 @@ class EditorJS_WP_Editor_Loader {
                 'codePlaceholder' => __('Вставьте код', 'editorjs-wordpress'),
                 'quotePlaceholder' => __('Цитата', 'editorjs-wordpress'),
                 'quoteCaptionPlaceholder' => __('Автор', 'editorjs-wordpress'),
+                'buttonToolTitle' => __('Кнопка', 'editorjs-wordpress'),
+                'buttonTextPlaceholder' => __('Текст кнопки', 'editorjs-wordpress'),
+                'buttonUrlPlaceholder' => __('Ссылка', 'editorjs-wordpress'),
+                'buttonApply' => __('Применить', 'editorjs-wordpress'),
+                'buttonEditTune' => __('Редактировать кнопку', 'editorjs-wordpress'),
+                'buttonInvalidUrl' => __('Некорректный URL', 'editorjs-wordpress'),
+                'buttonTextRequired' => __('Введите текст кнопки', 'editorjs-wordpress'),
+                'buttonDefaultText' => __('Кнопка', 'editorjs-wordpress'),
                 'imageUploadFailed' => __('Не удалось загрузить изображение.', 'editorjs-wordpress'),
                 'restoreNewPostConfirm' => __('Найден локальный черновик для нового поста. Восстановить его?', 'editorjs-wordpress'),
                 'frontendSave' => __('Сохранить изменения', 'editorjs-wordpress'),

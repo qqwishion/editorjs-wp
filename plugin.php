@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EditorJS WordPress
  * Description: Replaces Gutenberg with Editor.js in wp-admin and renders Editor.js content on frontend.
- * Version: 1.3.3
+ * Version: 1.3.13
  * Author: qqwishion
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('EDITORJS_WP_VERSION', '1.3.3');
+define('EDITORJS_WP_VERSION', '1.3.13');
 define('EDITORJS_WP_FILE', __FILE__);
 define('EDITORJS_WP_DIR', plugin_dir_path(__FILE__));
 define('EDITORJS_WP_URL', plugin_dir_url(__FILE__));

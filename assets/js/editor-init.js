@@ -667,25 +667,22 @@
         });
     }
 
-    function preventAnyButtonNavigation(holder) {
-        if (!holder || holder.dataset.editorjsAnyButtonNavBlocked === "1") {
+    function markQuoteBlockContent(holder) {
+        if (!holder || typeof holder.querySelectorAll !== "function") {
             return;
         }
 
-        holder.addEventListener("click", function (event) {
-            const target = event && event.target && typeof event.target.closest === "function"
-                ? event.target.closest(".anyButton__btn")
-                : null;
-
-            if (!target || !holder.contains(target)) {
+        holder.querySelectorAll(".ce-block__content").forEach(function (content) {
+            if (!content || !content.classList) {
                 return;
             }
 
-            // Keep Editor.js block selection behavior, only suppress real navigation.
-            event.preventDefault();
-        }, true);
-
-        holder.dataset.editorjsAnyButtonNavBlocked = "1";
+            if (content.querySelector(".cdx-quote")) {
+                content.classList.add("editorjs-wp-quote-block-content");
+            } else {
+                content.classList.remove("editorjs-wp-quote-block-content");
+            }
+        });
     }
 
     function parseData(raw, fallback) {
@@ -2033,14 +2030,14 @@
                 patchKnownLocaleGlitches(document.body);
                 enforceTableCellEditability(holder);
                 enforceEditorInputEditability(holder);
-                preventAnyButtonNavigation(holder);
+                markQuoteBlockContent(holder);
 
                 if (typeof MutationObserver === "function") {
                     const localeObserver = new MutationObserver(function () {
                         patchKnownLocaleGlitches(document.body);
                         enforceTableCellEditability(holder);
                         enforceEditorInputEditability(holder);
-                        preventAnyButtonNavigation(holder);
+                        markQuoteBlockContent(holder);
                     });
                     localeObserver.observe(document.body, {
                         childList: true,
@@ -2084,7 +2081,7 @@
                     hiddenDataField.value = JSON.stringify(normalizePayloadValue(outputData));
                     enforceTableCellEditability(holder);
                     enforceEditorInputEditability(holder);
-                    preventAnyButtonNavigation(holder);
+                    markQuoteBlockContent(holder);
                 }).catch(function () {
                     return undefined;
                 });

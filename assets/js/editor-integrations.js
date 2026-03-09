@@ -781,6 +781,13 @@
             return;
         }
 
+        if (
+            statusNode.classList.contains("editorjs-wp-autosave-status--top-right")
+            || statusNode.closest(".editorjs-wp-frontend-top-meta")
+        ) {
+            return;
+        }
+
         let statusGroup = mount.querySelector(".editorjs-wp-integration-group--autosave");
         if (!statusGroup) {
             statusGroup = document.createElement("div");

@@ -22,7 +22,7 @@ This README describes the current implementation used in patch line `1.3.0`.
 - Quote
 - Delimiter
 - Table
-- Button (`editorjs-button`)
+- Button (custom built-in tool)
 - Drag-and-Drop (`editorjs-drag-drop`)
 
 ## Frontend Editor UI
@@ -161,4 +161,3 @@ editorjs-wordpress/
 8. Frontend editor route loads and saves to DB.
 9. Frontend preview and publish buttons work.
 10. Frontend rendered post displays all supported blocks correctly.
-

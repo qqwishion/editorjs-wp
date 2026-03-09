@@ -30,19 +30,28 @@
             throw new Error(defaultMessage);
         }
 
-        if (payload.success === 1) {
+        const isSuccess = (
+            payload.success === 1
+            || payload.success === true
+            || payload.success === "1"
+            || !!payload.file
+            || !!(payload.data && payload.data.file)
+        );
+
+        if (isSuccess) {
+            if (!payload.file && payload.data && payload.data.file) {
+                payload.file = payload.data.file;
+            }
             return payload;
         }
 
-        if (payload.success === false && payload.data && payload.data.message) {
-            throw new Error(payload.data.message);
-        }
+        const payloadMessage = (
+            payload.data && payload.data.message
+                ? payload.data.message
+                : (payload.message || defaultMessage)
+        );
 
-        if (payload.message) {
-            throw new Error(payload.message);
-        }
-
-        throw new Error(defaultMessage);
+        throw new Error(payloadMessage);
     }
 
     function parsePossiblyNoisyJson(raw) {
@@ -578,6 +587,251 @@
         }
     }
 
+    class EditorJSWPButtonTool {
+        static get toolbox() {
+            const config = window.EditorJSWPConfig || {};
+            return {
+                title: getLabel(config, "buttonToolTitle", "Кнопка"),
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M7 7h10a4 4 0 1 1 0 8h-1.6a1 1 0 1 1 0-2H17a2 2 0 1 0 0-4H7a2 2 0 1 0 0 4h1.6a1 1 0 1 1 0 2H7a4 4 0 1 1 0-8Z"/><path fill="currentColor" d="M10.2 11a1 1 0 0 1 1-1h1.6a1 1 0 1 1 0 2h-1.6a1 1 0 0 1-1-1Zm2.8 3a1 1 0 0 0-1-1h-1.6a1 1 0 1 0 0 2H12a1 1 0 0 0 1-1Z"/></svg>',
+            };
+        }
+
+        static get isReadOnlySupported() {
+            return true;
+        }
+
+        static get sanitize() {
+            return {
+                text: false,
+                link: false,
+            };
+        }
+
+        constructor(options) {
+            this.api = options.api;
+            this.config = options.config || {};
+            this.labels = this.config.labels || {};
+            this.readOnly = !!options.readOnly;
+
+            const initial = options.data && typeof options.data === "object" ? options.data : {};
+            this.data = {
+                text: String(initial.text || initial.label || "").trim(),
+                link: String(initial.link || initial.url || "").trim(),
+            };
+
+            this.wrapper = null;
+            this.formNode = null;
+            this.previewNode = null;
+            this.textInput = null;
+            this.urlInput = null;
+            this.previewLink = null;
+            this.isEditMode = !this.readOnly && (!this.data.text || !this.data.link);
+        }
+
+        render() {
+            this.wrapper = document.createElement("div");
+            this.wrapper.className = "editorjs-wp-button-tool";
+
+            this.formNode = document.createElement("div");
+            this.formNode.className = "editorjs-wp-button-tool__form";
+
+            this.textInput = document.createElement("input");
+            this.textInput.type = "text";
+            this.textInput.className = "editorjs-wp-button-tool__input";
+            this.textInput.placeholder = this.labels.buttonTextPlaceholder || "Текст кнопки";
+            this.textInput.value = this.data.text || "";
+            this.textInput.disabled = this.readOnly;
+
+            this.urlInput = document.createElement("input");
+            this.urlInput.type = "url";
+            this.urlInput.className = "editorjs-wp-button-tool__input";
+            this.urlInput.placeholder = this.labels.buttonUrlPlaceholder || "https://example.com";
+            this.urlInput.value = this.data.link || "";
+            this.urlInput.disabled = this.readOnly;
+
+            const actionsNode = document.createElement("div");
+            actionsNode.className = "editorjs-wp-button-tool__actions";
+
+            const applyButton = document.createElement("button");
+            applyButton.type = "button";
+            applyButton.className = "button button-secondary editorjs-wp-button-tool__apply";
+            applyButton.textContent = this.labels.buttonApply || "Применить";
+            applyButton.disabled = this.readOnly;
+            applyButton.addEventListener("click", this.applyChanges.bind(this));
+
+            actionsNode.appendChild(applyButton);
+            this.formNode.appendChild(this.textInput);
+            this.formNode.appendChild(this.urlInput);
+            this.formNode.appendChild(actionsNode);
+
+            this.previewNode = document.createElement("div");
+            this.previewNode.className = "editorjs-wp-button-tool__preview";
+
+            this.previewLink = document.createElement("a");
+            this.previewLink.className = "editorjs-wp-any-button editorjs-wp-button-tool__preview-link";
+            this.previewLink.target = "_blank";
+            this.previewLink.rel = "noopener nofollow noreferrer";
+            this.previewLink.href = "#";
+            this.previewLink.textContent = this.labels.buttonDefaultText || "Кнопка";
+            this.previewLink.addEventListener("click", this.handlePreviewClick.bind(this));
+            this.previewNode.addEventListener("click", this.handlePreviewClick.bind(this));
+
+            this.previewNode.appendChild(this.previewLink);
+            this.wrapper.appendChild(this.formNode);
+            this.wrapper.appendChild(this.previewNode);
+
+            this.refreshView();
+
+            return this.wrapper;
+        }
+
+        renderSettings() {
+            if (this.readOnly) {
+                return [];
+            }
+
+            return [
+                {
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.95l-3.75-3.75L3 17.25Zm2.92 2H5v-.92l8.06-8.06.92.92L5.92 19.25ZM20.7 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.75 1.75 3.75 3.75 1.74-1.76Z"/></svg>',
+                    label: this.labels.buttonEditTune || "Редактировать кнопку",
+                    onActivate: () => {
+                        this.setEditMode(true);
+                    },
+                },
+            ];
+        }
+
+        save() {
+            const textValue = this.textInput ? String(this.textInput.value || "").trim() : this.data.text;
+            const linkValue = this.normalizeLink(this.urlInput ? this.urlInput.value : this.data.link);
+
+            return {
+                text: textValue,
+                link: linkValue,
+            };
+        }
+
+        validate(savedData) {
+            if (!savedData || typeof savedData !== "object") {
+                return false;
+            }
+
+            const text = String(savedData.text || "").trim();
+            const link = String(savedData.link || "").trim();
+
+            return text !== "" && this.isValidHttpUrl(link);
+        }
+
+        applyChanges() {
+            const text = String(this.textInput ? this.textInput.value : "").trim();
+            const link = this.normalizeLink(this.urlInput ? this.urlInput.value : "");
+
+            if (text === "") {
+                this.notifyError(this.labels.buttonTextRequired || "Введите текст кнопки");
+                return;
+            }
+
+            if (!this.isValidHttpUrl(link)) {
+                this.notifyError(this.labels.buttonInvalidUrl || "Некорректный URL");
+                return;
+            }
+
+            this.data = {
+                text: text,
+                link: link,
+            };
+
+            this.setEditMode(false);
+        }
+
+        setEditMode(enabled) {
+            this.isEditMode = !!enabled && !this.readOnly;
+            if (this.isEditMode) {
+                if (this.textInput) {
+                    this.textInput.value = this.data.text || "";
+                }
+                if (this.urlInput) {
+                    this.urlInput.value = this.data.link || "";
+                }
+            }
+            this.refreshView();
+            if (this.isEditMode && this.textInput && typeof this.textInput.focus === "function") {
+                this.textInput.focus();
+            }
+        }
+
+        handlePreviewClick(event) {
+            if (this.readOnly) {
+                return;
+            }
+            if (event && typeof event.preventDefault === "function") {
+                event.preventDefault();
+            }
+            this.setEditMode(true);
+        }
+
+        refreshView() {
+            if (!this.formNode || !this.previewNode || !this.previewLink) {
+                return;
+            }
+
+            const draftText = this.textInput ? String(this.textInput.value || "").trim() : this.data.text;
+            const draftLink = this.normalizeLink(this.urlInput ? this.urlInput.value : this.data.link);
+            const previewText = this.data.text || draftText || (this.labels.buttonDefaultText || "Кнопка");
+            const previewLink = this.data.link || draftLink || "#";
+
+            this.previewLink.textContent = previewText;
+            this.previewLink.href = previewLink;
+
+            this.formNode.classList.toggle("is-hidden", !this.isEditMode);
+            this.previewNode.classList.toggle("is-hidden", this.isEditMode);
+        }
+
+        normalizeLink(rawLink) {
+            const trimmed = String(rawLink || "").trim();
+            if (trimmed === "") {
+                return "";
+            }
+
+            if (/^www\./i.test(trimmed)) {
+                return "https://" + trimmed;
+            }
+
+            return trimmed;
+        }
+
+        isValidHttpUrl(url) {
+            if (!url) {
+                return false;
+            }
+
+            try {
+                const parsed = new URL(url);
+                return parsed.protocol === "http:" || parsed.protocol === "https:";
+            } catch (error) {
+                return false;
+            }
+        }
+
+        notifyError(message) {
+            if (
+                this.api
+                && this.api.notifier
+                && typeof this.api.notifier.show === "function"
+            ) {
+                this.api.notifier.show({
+                    message: message,
+                    style: "error",
+                });
+                return;
+            }
+
+            if (window && typeof window.alert === "function") {
+                window.alert(message);
+            }
+        }
+    }
+
     function getImageToolConfig(config) {
         return {
             class: window.ImageTool,
@@ -697,17 +951,21 @@
             };
         }
 
-        if (typeof window.AnyButton === "function") {
-            tools.AnyButton = {
-                class: window.AnyButton,
-                inlineToolbar: false,
-                config: {
-                    css: {
-                        btnColor: "editorjs-wp-any-button",
-                    },
+        tools.AnyButton = {
+            class: EditorJSWPButtonTool,
+            inlineToolbar: false,
+            config: {
+                labels: {
+                    buttonTextPlaceholder: getLabel(config, "buttonTextPlaceholder", "Текст кнопки"),
+                    buttonUrlPlaceholder: getLabel(config, "buttonUrlPlaceholder", "https://example.com"),
+                    buttonApply: getLabel(config, "buttonApply", "Применить"),
+                    buttonEditTune: getLabel(config, "buttonEditTune", "Редактировать кнопку"),
+                    buttonInvalidUrl: getLabel(config, "buttonInvalidUrl", "Некорректный URL"),
+                    buttonTextRequired: getLabel(config, "buttonTextRequired", "Введите текст кнопки"),
+                    buttonDefaultText: getLabel(config, "buttonDefaultText", "Кнопка"),
                 },
-            };
-        }
+            },
+        };
 
         return tools;
     };

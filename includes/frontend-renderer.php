@@ -26,21 +26,12 @@ class EditorJS_WP_Frontend_Renderer {
             return;
         }
 
-        if (!is_user_logged_in() || !current_user_can('edit_posts')) {
+        if (!is_user_logged_in()) {
             return;
         }
 
-        $created_post_id = wp_insert_post(
-            [
-                'post_type' => EditorJS_WP_Settings::TARGET_POST_TYPE,
-                'post_status' => 'draft',
-                'post_author' => get_current_user_id(),
-                'post_title' => __('РќРѕРІС‹Р№ РїРѕСЃС‚', 'editorjs-wordpress'),
-            ],
-            true
-        );
-
-        if (is_wp_error($created_post_id) || $created_post_id <= 0) {
+        $created_post_id = self::create_frontend_draft_for_current_user();
+        if ($created_post_id <= 0) {
             return;
         }
 
@@ -139,19 +130,22 @@ class EditorJS_WP_Frontend_Renderer {
             exit;
         }
 
-        $post_id = self::resolve_publish_request_post_id();
-        if ($post_id <= 0 && is_user_logged_in() && current_user_can('edit_posts')) {
-            $created_post_id = wp_insert_post(
+        if (!is_user_logged_in()) {
+            $login_url = self::resolve_frontend_login_url();
+            self::log_publish_debug(
+                'redirect_guest_to_login',
                 [
-                    'post_type' => EditorJS_WP_Settings::TARGET_POST_TYPE,
-                    'post_status' => 'draft',
-                    'post_author' => get_current_user_id(),
-                    'post_title' => __('Новый пост', 'editorjs-wordpress'),
-                ],
-                true
+                    'redirect' => $login_url,
+                ]
             );
+            wp_safe_redirect($login_url);
+            exit;
+        }
 
-            if (!is_wp_error($created_post_id) && $created_post_id > 0) {
+        $post_id = self::resolve_publish_request_post_id();
+        if ($post_id <= 0) {
+            $created_post_id = self::create_frontend_draft_for_current_user();
+            if ($created_post_id > 0) {
                 $redirect_target = self::build_publish_editor_url((int) $created_post_id);
                 if ($redirect_target !== '') {
                     self::log_publish_debug(
@@ -165,6 +159,13 @@ class EditorJS_WP_Frontend_Renderer {
                     exit;
                 }
             }
+
+            self::log_publish_debug('fallback_draft_create_failed');
+            self::render_frontend_fallback_page(
+                __('Could not create a draft for this account.', 'editorjs-wordpress'),
+                403
+            );
+            exit;
         }
 
         $publish_post = get_post($post_id);
@@ -182,7 +183,7 @@ class EditorJS_WP_Frontend_Renderer {
             exit;
         }
 
-        if (!is_user_logged_in() || !current_user_can('edit_post', (int) $publish_post->ID)) {
+        if (!self::can_current_user_edit_frontend_post($publish_post)) {
             self::log_publish_debug(
                 'fallback_forbidden',
                 [
@@ -411,6 +412,26 @@ class EditorJS_WP_Frontend_Renderer {
         return esc_url_raw(add_query_arg('id', (string) $post_id, $base_url));
     }
 
+    private static function resolve_frontend_login_url(): string {
+        $request_uri = self::get_request_uri();
+        $redirect_target = $request_uri !== '' ? home_url($request_uri) : home_url('/');
+        $default_login_url = home_url('/profile/');
+
+        $login_url = apply_filters(
+            'editorjs_wp_frontend_login_url',
+            $default_login_url,
+            $redirect_target
+        );
+
+        if (!is_string($login_url) || $login_url === '') {
+            $login_url = wp_login_url($redirect_target);
+        } elseif (strpos($login_url, 'redirect_to=') === false) {
+            $login_url = add_query_arg('redirect_to', $redirect_target, $login_url);
+        }
+
+        return esc_url_raw($login_url);
+    }
+
     private static function is_publish_request(): bool {
         $normalized_path = strtolower(trim(self::get_normalized_request_path(), '/'));
         $candidates = self::get_publish_route_candidates();
@@ -548,7 +569,7 @@ class EditorJS_WP_Frontend_Renderer {
             return false;
         }
 
-        if (!current_user_can('edit_post', (int) $post->ID)) {
+        if (!self::can_current_user_edit_frontend_post($post)) {
             return false;
         }
 
@@ -558,6 +579,45 @@ class EditorJS_WP_Frontend_Renderer {
 
         // Default behavior: frontend editor is enabled on configured route.
         return true;
+    }
+
+    private static function create_frontend_draft_for_current_user(): int {
+        if (!is_user_logged_in()) {
+            return 0;
+        }
+
+        $created_post_id = wp_insert_post(
+            [
+                'post_type' => EditorJS_WP_Settings::TARGET_POST_TYPE,
+                'post_status' => 'draft',
+                'post_author' => get_current_user_id(),
+                'post_title' => __('Новый пост', 'editorjs-wordpress'),
+            ],
+            true
+        );
+
+        if (is_wp_error($created_post_id) || (int) $created_post_id <= 0) {
+            return 0;
+        }
+
+        return (int) $created_post_id;
+    }
+
+    private static function can_current_user_edit_frontend_post(WP_Post $post): bool {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+
+        $post_id = (int) $post->ID;
+        if ($post_id <= 0) {
+            return false;
+        }
+
+        if (current_user_can('edit_post', $post_id)) {
+            return true;
+        }
+
+        return (int) $post->post_author === (int) get_current_user_id();
     }
 
     private static function render_frontend_editor(int $post_id): string {
@@ -607,8 +667,14 @@ class EditorJS_WP_Frontend_Renderer {
         ob_start();
         ?>
         <div class="editorjs-wp-admin-shell editorjs-wp-frontend-shell post-card">
+            <div class="editorjs-wp-frontend-top-meta">
+                <div id="editorjs-wp-autosave-status" class="editorjs-wp-autosave-status editorjs-wp-autosave-status--top-right" data-state="idle">
+                    <?php echo $autosave_label; ?>
+                </div>
+            </div>
+
             <?php if (!empty($drafts)): ?>
-                <details class="publish-drafts editorjs-wp-drafts" open>
+                <details class="publish-drafts editorjs-wp-drafts">
                     <summary class="publish-drafts__header">
                         <?php echo $drafts_label; ?>
                         <span class="badge"><?php echo (int) count($drafts); ?></span>
@@ -696,11 +762,6 @@ class EditorJS_WP_Frontend_Renderer {
                         <button type="button" id="editorjs-wp-stock-open" class="editorjs-wp-integration-button">
                             <?php echo $photo_search_label; ?>
                         </button>
-                    </div>
-                    <div class="editorjs-wp-integration-group editorjs-wp-integration-group--autosave">
-                        <div id="editorjs-wp-autosave-status" class="editorjs-wp-autosave-status publish-form__action-saved" data-state="idle">
-                            <?php echo $autosave_label; ?>
-                        </div>
                     </div>
                 </div>
 
@@ -1340,7 +1401,6 @@ class EditorJS_WP_Frontend_Renderer {
             'editorjs-quote',
             'editorjs-delimiter',
             'editorjs-table',
-            'editorjs-button',
             'editorjs-drag-drop',
             'editorjs-wp-tools',
             'editorjs-wp-autosaves',

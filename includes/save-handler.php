@@ -128,7 +128,7 @@ class EditorJS_WP_Save_Handler {
         }
 
         $post_id = isset($_POST['postId']) ? (int) $_POST['postId'] : 0;
-        if ($post_id <= 0 || !current_user_can('edit_post', $post_id)) {
+        if ($post_id <= 0 || !self::current_user_can_edit_post_relaxed($post_id)) {
             wp_send_json_error(['message' => __('У вас нет прав на редактирование этой записи.', 'editorjs-wordpress')], 403);
         }
 
@@ -248,7 +248,7 @@ class EditorJS_WP_Save_Handler {
             $post_id = self::resolve_post_id_from_request_context();
         }
 
-        if ($post_id <= 0 || !current_user_can('edit_post', $post_id)) {
+        if ($post_id <= 0 || !self::current_user_can_edit_post_relaxed($post_id)) {
             wp_send_json_error(['message' => __('У вас нет прав на редактирование этой записи.', 'editorjs-wordpress')], 403);
         }
 
@@ -293,6 +293,27 @@ class EditorJS_WP_Save_Handler {
         }
 
         return 0;
+    }
+
+    private static function current_user_can_edit_post_relaxed(int $post_id): bool {
+        if ($post_id <= 0 || !is_user_logged_in()) {
+            return false;
+        }
+
+        if (current_user_can('edit_post', $post_id)) {
+            return true;
+        }
+
+        $post = get_post($post_id);
+        if (!$post instanceof WP_Post) {
+            return false;
+        }
+
+        if ($post->post_type !== EditorJS_WP_Settings::TARGET_POST_TYPE) {
+            return false;
+        }
+
+        return (int) $post->post_author === (int) get_current_user_id();
     }
 
     private static function persist_frontend_payload(int $post_id, bool $required): void {
