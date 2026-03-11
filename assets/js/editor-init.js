@@ -1,4 +1,4 @@
-﻿(function (window, document) {
+(function (window, document) {
     "use strict";
 
     function isTrueFlag(value) {
@@ -683,6 +683,216 @@
                 content.classList.remove("editorjs-wp-quote-block-content");
             }
         });
+    }
+
+    function installMobilePopoverAutoSlide(holder) {
+        if (window.__editorjsWpMobilePopoverAutoSlideInstalled) {
+            return;
+        }
+
+        window.__editorjsWpMobilePopoverAutoSlideInstalled = true;
+
+        const isMobileViewport = function () {
+            try {
+                if (window.matchMedia("(max-width: 900px)").matches) {
+                    return true;
+                }
+
+                if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) {
+                    return true;
+                }
+            } catch (error) {
+                return window.innerWidth <= 900;
+            }
+
+            return false;
+        };
+
+        const findOpenedPopoverContainer = function () {
+            const popovers = document.querySelectorAll(".ce-popover.ce-popover--opened:not(.ce-popover--inline)");
+            if (!popovers.length) {
+                return null;
+            }
+
+            const popover = popovers[popovers.length - 1];
+            if (!popover || typeof popover.querySelector !== "function") {
+                return null;
+            }
+
+            return popover.querySelector(".ce-popover__container");
+        };
+
+        const getScrollableAncestors = function (node) {
+            const ancestors = [];
+            let current = node && node.parentElement ? node.parentElement : null;
+
+            while (current && current !== document.body && current !== document.documentElement) {
+                const style = window.getComputedStyle ? window.getComputedStyle(current) : null;
+                const overflowY = style ? String(style.overflowY || "") : "";
+                const isScrollable = /(auto|scroll|overlay)/i.test(overflowY);
+
+                if (isScrollable && current.scrollHeight > (current.clientHeight + 4)) {
+                    ancestors.push(current);
+                }
+
+                current = current.parentElement;
+            }
+
+            return ancestors;
+        };
+
+        const smoothScrollNodeIntoView = function (node, blockValue) {
+            if (!node || typeof node.scrollIntoView !== "function") {
+                return;
+            }
+
+            try {
+                node.scrollIntoView({
+                    behavior: "smooth",
+                    block: blockValue || "center",
+                    inline: "nearest",
+                });
+            } catch (error) {
+                // no-op
+            }
+        };
+
+        const nudgeScrollableAncestors = function (targetNode) {
+            if (!targetNode || typeof targetNode.getBoundingClientRect !== "function") {
+                return;
+            }
+
+            const topPadding = 12;
+            const bottomPadding = 12;
+            const ancestors = getScrollableAncestors(targetNode);
+
+            ancestors.forEach(function (ancestor) {
+                if (!ancestor || typeof ancestor.getBoundingClientRect !== "function") {
+                    return;
+                }
+
+                const targetRect = targetNode.getBoundingClientRect();
+                const ancestorRect = ancestor.getBoundingClientRect();
+                let deltaY = 0;
+
+                if (targetRect.top < (ancestorRect.top + topPadding)) {
+                    deltaY = targetRect.top - (ancestorRect.top + topPadding);
+                } else if (targetRect.bottom > (ancestorRect.bottom - bottomPadding)) {
+                    deltaY = targetRect.bottom - (ancestorRect.bottom - bottomPadding);
+                }
+
+                if (Math.abs(deltaY) <= 4) {
+                    return;
+                }
+
+                try {
+                    ancestor.scrollBy({
+                        top: deltaY,
+                        behavior: "smooth",
+                    });
+                } catch (error) {
+                    // no-op
+                }
+            });
+        };
+
+        const nudgeWindowViewport = function (targetNode) {
+            if (!targetNode || typeof targetNode.getBoundingClientRect !== "function") {
+                return;
+            }
+
+            const rect = targetNode.getBoundingClientRect();
+            const viewportHeight = Math.max(
+                window.innerHeight || 0,
+                document.documentElement ? document.documentElement.clientHeight : 0
+            );
+            const topPadding = 12;
+            const bottomPadding = 12;
+            let deltaY = 0;
+
+            if (rect.top < topPadding) {
+                deltaY = rect.top - topPadding;
+            } else if (rect.bottom > (viewportHeight - bottomPadding)) {
+                deltaY = rect.bottom - (viewportHeight - bottomPadding);
+            }
+
+            if (Math.abs(deltaY) <= 4) {
+                return;
+            }
+
+            try {
+                window.scrollBy({
+                    top: deltaY,
+                    behavior: "smooth",
+                });
+            } catch (error) {
+                // no-op
+            }
+        };
+
+        const ensurePopoverVisible = function () {
+            if (!isMobileViewport()) {
+                return;
+            }
+
+            const container = findOpenedPopoverContainer();
+            if (!container) {
+                return;
+            }
+
+            const style = window.getComputedStyle ? window.getComputedStyle(container) : null;
+            const isFixed = !!(style && style.position === "fixed");
+
+            if (!isFixed) {
+                smoothScrollNodeIntoView(container, "nearest");
+            }
+
+            nudgeScrollableAncestors(container);
+            nudgeWindowViewport(container);
+        };
+
+        const scheduleEnsureVisible = function (delay) {
+            window.setTimeout(ensurePopoverVisible, delay);
+        };
+
+        const handlePopoverTrigger = function (event) {
+            if (!isMobileViewport()) {
+                return;
+            }
+
+            const target = event && event.target && typeof event.target.closest === "function"
+                ? event.target.closest(".ce-toolbar__plus, .ce-toolbar__settings-btn")
+                : null;
+
+            if (!target) {
+                return;
+            }
+
+            smoothScrollNodeIntoView(target, "center");
+            nudgeScrollableAncestors(target);
+            nudgeWindowViewport(target);
+
+            if (holder && typeof holder.querySelector === "function") {
+                const selectedBlock = holder.querySelector(".ce-block--selected, .ce-block--focused, .ce-block");
+                if (selectedBlock) {
+                    smoothScrollNodeIntoView(selectedBlock, "center");
+                    nudgeScrollableAncestors(selectedBlock);
+                    nudgeWindowViewport(selectedBlock);
+                }
+            }
+
+            scheduleEnsureVisible(30);
+            scheduleEnsureVisible(70);
+            scheduleEnsureVisible(180);
+            scheduleEnsureVisible(320);
+            scheduleEnsureVisible(520);
+        }
+
+        document.addEventListener("touchstart", handlePopoverTrigger, true);
+        document.addEventListener("mousedown", handlePopoverTrigger, true);
+        document.addEventListener("pointerup", handlePopoverTrigger, true);
+        document.addEventListener("touchend", handlePopoverTrigger, true);
+        document.addEventListener("click", handlePopoverTrigger, true);
     }
 
     function parseData(raw, fallback) {
@@ -2031,6 +2241,7 @@
                 enforceTableCellEditability(holder);
                 enforceEditorInputEditability(holder);
                 markQuoteBlockContent(holder);
+                installMobilePopoverAutoSlide(holder);
 
                 if (typeof MutationObserver === "function") {
                     const localeObserver = new MutationObserver(function () {

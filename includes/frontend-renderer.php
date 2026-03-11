@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 if (!defined('ABSPATH')) {
     exit;
@@ -7,7 +7,8 @@ if (!defined('ABSPATH')) {
 class EditorJS_WP_Frontend_Renderer {
     public static function init(): void {
         add_filter('the_content', [__CLASS__, 'filter_the_content'], 20);
-        add_action('wp_enqueue_scripts', [__CLASS__, 'enqueue_frontend_assets']);
+        // Load late so plugin content styles override active theme typography/color rules.
+        add_action('wp_enqueue_scripts', [__CLASS__, 'enqueue_frontend_assets'], 999);
         // Run before theme/frontend plugins to always intercept the publish route.
         add_action('template_redirect', [__CLASS__, 'maybe_render_frontend_editor_page'], 0);
     }
@@ -1111,7 +1112,7 @@ class EditorJS_WP_Frontend_Renderer {
     }
 
     private static function render_paragraph(array $data): string {
-        $text = wp_kses_post((string) ($data['text'] ?? ''));
+        $text = self::sanitize_rich_text_output((string) ($data['text'] ?? ''));
         if ($text === '') {
             return '';
         }
@@ -1120,7 +1121,7 @@ class EditorJS_WP_Frontend_Renderer {
     }
 
     private static function render_header(array $data): string {
-        $text = wp_kses_post((string) ($data['text'] ?? ''));
+        $text = self::sanitize_rich_text_output((string) ($data['text'] ?? ''));
         if ($text === '') {
             return '';
         }
@@ -1168,7 +1169,7 @@ class EditorJS_WP_Frontend_Renderer {
             return '';
         }
 
-        $caption = wp_kses_post((string) ($data['caption'] ?? ''));
+        $caption = self::sanitize_rich_text_output((string) ($data['caption'] ?? ''));
 
         $html = '<figure class="editorjs-wp-media editorjs-wp-image">';
         $html .= sprintf('<img src="%s" alt="" loading="lazy" />', $url);
@@ -1203,7 +1204,7 @@ class EditorJS_WP_Frontend_Renderer {
             return '';
         }
 
-        $caption = wp_kses_post((string) ($data['caption'] ?? ''));
+        $caption = self::sanitize_rich_text_output((string) ($data['caption'] ?? ''));
         $poster = self::sanitize_video_poster_for_output((string) ($data['poster'] ?? ''));
         $preload = $poster !== '' ? 'none' : 'metadata';
 
@@ -1237,12 +1238,12 @@ class EditorJS_WP_Frontend_Renderer {
     }
 
     private static function render_quote(array $data): string {
-        $text = wp_kses_post((string) ($data['text'] ?? ''));
+        $text = self::sanitize_rich_text_output((string) ($data['text'] ?? ''));
         if ($text === '') {
             return '';
         }
 
-        $caption = wp_kses_post((string) ($data['caption'] ?? ''));
+        $caption = self::sanitize_rich_text_output((string) ($data['caption'] ?? ''));
 
         $html = '<blockquote class="editorjs-wp-quote">';
         $html .= sprintf('<p>%s</p>', $text);
@@ -1275,7 +1276,7 @@ class EditorJS_WP_Frontend_Renderer {
                 $cells .= sprintf(
                     '<%1$s>%2$s</%1$s>',
                     $cell_tag,
-                    wp_kses_post((string) $cell)
+                    self::sanitize_rich_text_output((string) $cell)
                 );
             }
 
@@ -1305,6 +1306,25 @@ class EditorJS_WP_Frontend_Renderer {
             $url,
             esc_html($text)
         );
+    }
+
+    private static function sanitize_rich_text_output(string $html): string {
+        $safe = wp_kses_post($html);
+        if ($safe === '') {
+            return '';
+        }
+
+        $without_presentation = preg_replace(
+            '/\s(?:style|color|bgcolor)\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/iu',
+            '',
+            $safe
+        );
+
+        if (is_string($without_presentation) && $without_presentation !== '') {
+            return $without_presentation;
+        }
+
+        return $safe;
     }
 
     private static function sanitize_video_poster_for_output(string $poster): string {

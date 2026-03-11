@@ -573,7 +573,7 @@ class EditorJS_WP_Save_Handler {
         switch (strtolower($type)) {
             case 'paragraph':
                 return [
-                    'text' => wp_kses_post(self::decode_unicode_sequences((string) ($data['text'] ?? ''))),
+                    'text' => self::sanitize_rich_text_value((string) ($data['text'] ?? '')),
                 ];
 
             case 'header':
@@ -582,7 +582,7 @@ class EditorJS_WP_Save_Handler {
                     $level = 2;
                 }
                 return [
-                    'text' => wp_kses_post(self::decode_unicode_sequences((string) ($data['text'] ?? ''))),
+                    'text' => self::sanitize_rich_text_value((string) ($data['text'] ?? '')),
                     'level' => $level,
                 ];
 
@@ -608,7 +608,7 @@ class EditorJS_WP_Save_Handler {
                     ],
                     'url' => $url,
                     'attachmentId' => $attachment_id > 0 ? $attachment_id : 0,
-                    'caption' => wp_kses_post(self::decode_unicode_sequences((string) ($data['caption'] ?? ''))),
+                    'caption' => self::sanitize_rich_text_value((string) ($data['caption'] ?? '')),
                 ];
 
             case 'video':
@@ -621,7 +621,7 @@ class EditorJS_WP_Save_Handler {
 
                 return [
                     'url' => esc_url_raw((string) ($data['url'] ?? '')),
-                    'caption' => wp_kses_post(self::decode_unicode_sequences((string) ($data['caption'] ?? ''))),
+                    'caption' => self::sanitize_rich_text_value((string) ($data['caption'] ?? '')),
                     'width' => isset($data['width']) ? (int) $data['width'] : 0,
                     'height' => isset($data['height']) ? (int) $data['height'] : 0,
                     'attachmentId' => $attachment_id > 0 ? $attachment_id : 0,
@@ -635,8 +635,8 @@ class EditorJS_WP_Save_Handler {
 
             case 'quote':
                 return [
-                    'text' => wp_kses_post(self::decode_unicode_sequences((string) ($data['text'] ?? ''))),
-                    'caption' => wp_kses_post(self::decode_unicode_sequences((string) ($data['caption'] ?? ''))),
+                    'text' => self::sanitize_rich_text_value((string) ($data['text'] ?? '')),
+                    'caption' => self::sanitize_rich_text_value((string) ($data['caption'] ?? '')),
                     'alignment' => sanitize_text_field((string) ($data['alignment'] ?? 'left')),
                 ];
 
@@ -652,7 +652,7 @@ class EditorJS_WP_Save_Handler {
                         }
                         $content[] = array_map(
                             static function ($cell): string {
-                                return wp_kses_post(self::decode_unicode_sequences((string) $cell));
+                                return self::sanitize_rich_text_value((string) $cell);
                             },
                             $row
                         );
@@ -674,6 +674,26 @@ class EditorJS_WP_Save_Handler {
         }
 
         return [];
+    }
+
+    private static function sanitize_rich_text_value(string $value): string {
+        $decoded = self::decode_unicode_sequences($value);
+        $safe = wp_kses_post($decoded);
+        if ($safe === '') {
+            return '';
+        }
+
+        $without_presentation = preg_replace(
+            '/\s(?:style|color|bgcolor)\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/iu',
+            '',
+            $safe
+        );
+
+        if (is_string($without_presentation) && $without_presentation !== '') {
+            return $without_presentation;
+        }
+
+        return $safe;
     }
 
     private static function decode_unicode_sequences(string $value): string {
